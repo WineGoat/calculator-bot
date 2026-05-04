@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_users(users)
     
     await update.message.reply_text(
-        "⚡ ဂဏန်း ရိုက်ထည့်လိုက်ရုံပဲ။ ကျန်တာ ငါ့အလုပ်။\n\n"
+        "⚡ Just type the numbers. I'll handle the rest.\n\n"
         "🧮  5+3  |  100*2  |  (50+50)/4"
     )
     
