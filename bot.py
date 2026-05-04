@@ -1,46 +1,64 @@
 import os
+import json
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "1127663898"))
+USERS_FILE = "users.json"
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+def load_users():
+    try:
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    
+    # Save user
+    users = load_users()
+    is_new = str(user.id) not in users
+    users[str(user.id)] = {
+        "name": user.full_name,
+        "username": user.username or ""
+    }
+    save_users(users)
+    
     await update.message.reply_text(
-        "🧮 Calculator Bot မှ ကြိုဆိုပါတယ်!\n\n"
-        "တွက်ချက်ချင်တာ ရိုက်ထည့်ပါ:\n"
-        "➕ ပေါင်း: 5+3\n"
-        "➖ နုတ်: 10-4\n"
-        "✖️ မြှောက်: 6*7\n"
-        "➗ စား: 100/5\n"
-        "🔢 ရောပြီးတွက်: (5+3)*2\n\n"
-        "ဥပမာ: 1500*3+500"
+        "⚡ ဂဏန်း ရိုက်ထည့်လိုက်ရုံပဲ။ ကျန်တာ ငါ့အလုပ်။\n\n"
+        "🧮  5+3  |  100*2  |  (50+50)/4"
     )
     
     # Notify admin about new user
-    try:
-        username = f"@{user.username}" if user.username else "No username"
-        notify_text = (
-            f"👤 New User Joined!\n\n"
-            f"Name: {user.full_name}\n"
-            f"Username: {username}\n"
-            f"ID: {user.id}"
-        )
-        await context.bot.send_message(chat_id=ADMIN_ID, text=notify_text)
-    except Exception as e:
-        logging.error(f"Failed to notify admin: {e}")
+    if is_new:
+        try:
+            username = f"@{user.username}" if user.username else "No username"
+            notify_text = (
+                f"👤 New User!\n"
+                f"Name: {user.full_name}\n"
+                f"Username: {username}\n"
+                f"ID: {user.id}\n"
+                f"Total Users: {len(users)}"
+            )
+            await context.bot.send_message(chat_id=ADMIN_ID, text=notify_text)
+        except Exception as e:
+            logging.error(f"Failed to notify admin: {e}")
 
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
-    # Only allow safe characters for calculation
     allowed = set('0123456789+-*/.() ')
     if not all(c in allowed for c in text):
-        await update.message.reply_text("❌ တွက်လို့မရပါ။\nဂဏန်းနဲ့ +, -, *, / ပဲ သုံးပါ။\nဥပမာ: 5+3 သို့ 100*2")
+        await update.message.reply_text("❌ ဂဏန်းနဲ့ +, -, *, / ပဲ သုံးပါ။")
         return
     
     try:
@@ -54,17 +72,18 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ZeroDivisionError:
         await update.message.reply_text("❌ သုညနဲ့ စားလို့ မရပါ။")
     except:
-        await update.message.reply_text("❌ တွက်လို့မရပါ။\nဥပမာ: 5+3 သို့ 100*2")
+        await update.message.reply_text("❌ တွက်လို့မရပါ။\nဥပမာ: 5+3")
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    await update.message.reply_text("📊 Bot is running!")
+    all_users = load_users()
+    await update.message.reply_text(f"📊 Total Users: {len(all_users)}")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("users", users))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, calculate))
     print("Calculator Bot is running...")
     app.run_polling()
