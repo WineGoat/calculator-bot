@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 from telegram import Update
@@ -9,6 +10,10 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "1127663898"))
 USERS_FILE = "users.json"
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Pattern to match math expressions only (must contain at least one operator)
+MATH_PATTERN = re.compile(r'^[\d\s\+\-\*\/\.\(\)]+$')
+HAS_OPERATOR = re.compile(r'[\+\-\*\/]')
 
 def load_users():
     try:
@@ -56,10 +61,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
-    allowed = set('0123456789+-*/.() ')
-    if not all(c in allowed for c in text):
-        await update.message.reply_text("❌ ဂဏန်းနဲ့ +, -, *, / ပဲ သုံးပါ။")
-        return
+    # Only respond if it looks like a math expression
+    # Must match math pattern AND contain at least one operator
+    if not MATH_PATTERN.match(text) or not HAS_OPERATOR.search(text):
+        return  # Silently ignore non-math messages
     
     try:
         result = eval(text)
@@ -70,9 +75,9 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result = round(result, 2)
         await update.message.reply_text(f"🧮 {text} = {result}")
     except ZeroDivisionError:
-        await update.message.reply_text("❌ သုညနဲ့ စားလို့ မရပါ။")
+        await update.message.reply_text("❌ Cannot divide by zero.")
     except:
-        await update.message.reply_text("❌ တွက်လို့မရပါ။\nဥပမာ: 5+3")
+        pass  # Silently ignore invalid expressions
 
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
